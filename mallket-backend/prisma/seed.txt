@@ -1,0 +1,26 @@
+import prisma from '../src/config/prisma';
+
+async function main() {
+    await prisma.product.createMany({
+        data: [
+            {
+                name: "Running Shoes",
+                description: "Comfortable running shoes",
+                price: 99.99,
+                stock: 100,
+                images: ['/uploads/shoes.jpg'], // ✅ Array with one image
+                categoryId: "your-category-id-here", // Required if `categoryId` is not optional
+            },
+            {
+                name: "Backpack",
+                description: "Durable backpack",
+                price: 49.99,
+                stock: 50,
+                images: ['/uploads/backpack.jpg'], // ✅ Array with one image
+                categoryId: "your-category-id-here",
+            },
+        ],
+    });
+}
+
+main().catch(e => console.error(e));
