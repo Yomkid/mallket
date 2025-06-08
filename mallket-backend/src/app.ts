@@ -17,6 +17,11 @@ app.use(morgan('dev'));
 app.use(express.json());
 
 
+app.get('/', (req, res) => {
+  res.send('MallKet backend is alive!');
+});
+
+
 // Add this right after app.use(express.json());
 app.post('/api/test-body', (req, res) => {
   console.log('Test Body:', req.body); // Check if this logs correctly

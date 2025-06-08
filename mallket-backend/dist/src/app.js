@@ -17,6 +17,9 @@ const app = (0, express_1.default)();
 app.use((0, cors_1.default)());
 app.use((0, morgan_1.default)('dev'));
 app.use(express_1.default.json());
+app.get('/', (req, res) => {
+    res.send('MallKet backend is alive!');
+});
 // Add this right after app.use(express.json());
 app.post('/api/test-body', (req, res) => {
     console.log('Test Body:', req.body); // Check if this logs correctly
