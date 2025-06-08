@@ -131,8 +131,21 @@ sh
 npx prisma migrate dev --name init
 Run the seed script:
 
+npx prisma migrate dev --name fix_permission_uniqueness
+
+
 sh
 ts-node prisma/seed.ts
+
+
+npx prisma format
+npx prisma validate
+npx prisma generate
+
+
+npx prisma migrate reset
+
+
 Additional Notes:
 If you don’t need Category or User, remove those relations from Product and Cart.
 
@@ -165,3 +178,61 @@ Add more products/categories
 Create admin users
 
 Add product reviews
+
+
+
+
+
+🖼️ 8. Next Steps (Optional but Important)
+If you're continuing:
+
+Goal	What to Add
+🧾 Payments	Integrate Paystack, Stripe, etc.
+📧 Email Notifications	Sendgrid, Nodemailer
+📊 Admin dashboard (frontend)	Next.js/React/Vue with REST APIs
+📱 Mobile app integration	Flutter, React Native
+🛒 Inventory system	Track product stock
+🧪 Unit tests	jest or vitest for critical flows
+
+
+
+
+Authentication
+Registration is working
+[POST] http://localhost:5000/api/auth/register
+
+Login is working
+[POST] http://localhost:5000/api/auth/login
+
+Verify email
+[GET] http://localhost:5000/api/auth/verify-email?token=
+
+
+Resend Verification
+[POST] http://localhost:5000/api/auth/resend-verification
+
+
+Reset Password
+[POST] /api/auth/request-password-reset
+
+8. Reset Password
+Endpoint: POST /api/auth/reset-password
+Body (JSON):
+
+json
+Copy
+Edit
+{
+  "token": "reset_token_from_db",
+  "newPassword": "NewStrongPassword456!"
+}
+✅ Expected: 200 OK, password updated
+
+
+BAN and UNBAN User
+POST /api/auth/ban-user/:userId
+POST /api/auth/ban-user/:userId
+
+http://localhost:5000/api/auth/unban-user/50c62a06-1b5e-4a74-b621-9a49da89b272
+
+AuditLog is working for BAN and UNBAN User
