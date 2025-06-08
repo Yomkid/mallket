@@ -18,11 +18,24 @@ interface DecodedToken {
 
 interface UserWithPermissions {
   id: string;
-  role?: {
-    permissions: Array<{ action: string }>;
-  };
+  email?: string;
   isBanned?: boolean;
+  role?: {
+    permissions: Array<{
+      id: string;
+      action: string;
+      description?: string | null;
+      createdAt?: Date;
+    }>;
+    id?: string;
+    name?: string;
+    description?: string | null;
+    createdAt?: Date;
+    updatedAt?: Date;
+  } | null;
 }
+
+
 
 // Cache for route permissions to reduce database queries
 const routePermissionCache = new Map<string, string>();
@@ -55,6 +68,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
       where: { id: decoded.userId },
       select: {
         id: true,
+        email: true, // ✅ Add this line
         isBanned: true,
         role: {
           select: {
@@ -67,6 +81,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
         },
       },
     });
+
 
     if (!user) {
       return res.status(401).json({ message: "User account not found" });
@@ -163,14 +178,20 @@ export const requireRole = async (req: Request, res: Response, next: NextFunctio
     // Get the complete user with role details
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      include: {
+      select: {
+        id: true,
+        email: true, // ✅ Correct
+        isBanned: true,
         role: {
           include: {
-            permissions: true
-          }
-        }
-      }
+            permissions: true,
+          },
+        },
+      },
     });
+
+
+
 
     if (!user) {
       return res.status(403).json({ message: "User not found" });

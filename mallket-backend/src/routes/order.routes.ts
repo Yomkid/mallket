@@ -6,7 +6,7 @@ import { protect, authorizeAction } from '../middlewares/auth.middleware';
 const router = Router();
 
 // 🔐 **Role-based protected routes (Permissions dynamically checked)**
-router.post('/', protect, authorizeAction, asyncHandler(createOrder));  // Auto-checks required permission dynamically
-router.get('/', protect, authorizeAction, asyncHandler(getOrders));     // Auto-checks required permission dynamically
+router.post('/', asyncHandler(protect), asyncHandler(authorizeAction), asyncHandler(createOrder));  // Auto-checks required permission dynamically
+router.get('/', asyncHandler(protect), asyncHandler(authorizeAction), asyncHandler(getOrders));     // Auto-checks required permission dynamically
 
 export default router;

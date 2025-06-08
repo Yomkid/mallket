@@ -1,19 +1,36 @@
 // services/auth.service.ts
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
 import { sendEmail } from '../utils/sendEmail';
 
+
 // Environment configuration
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET is not defined in environment variables');
-}
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+import { getEnvVar } from '../utils/env';
+
+// const JWT_SECRET = getEnvVar('JWT_SECRET');
+// const JWT_EXPIRES_IN = getEnvVar('JWT_EXPIRES_IN', '7d');
+
 const SALT_ROUNDS = 12; // Increased for better security
 const TOKEN_EXPIRATION_HOURS = 1;
+
+
+// Token utilities
+// JWT_EXPIRES_IN should be typed as ms.StringValue
+const JWT_SECRET: string = getEnvVar('JWT_SECRET');
+const JWT_EXPIRES_IN = getEnvVar('JWT_EXPIRES_IN', '7d') as jwt.Jwt | string; // explicitly asserting to string
+
+export function generateToken(userId: string): string {
+  const payload = { userId };
+  const options: SignOptions = {
+    expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'], // ✅ fixes the type error
+  };
+
+  return jwt.sign(payload, JWT_SECRET, options);
+}
+
 
 // Password utilities
 export async function hashPassword(password: string): Promise<string> {
@@ -21,16 +38,14 @@ export async function hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, SALT_ROUNDS);
 }
 
+
+
 export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
     if (!password || !hashedPassword) return false;
     return bcrypt.compare(password, hashedPassword);
 }
 
-// Token utilities
-export function generateToken(userId: string): string {
-    if (!userId) throw new Error('User ID is required');
-    return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-}
+
 
 export function generateRandomToken(length = 64): string {
     return crypto.randomBytes(Math.ceil(length / 2))
@@ -182,7 +197,7 @@ async function login(req: Request, res: Response) {
                 role: { 
                     include: { 
                         permissions: { 
-                            select: { name: true } 
+                            select: { action: true } // ✅ Corrected field
                         } 
                     } 
                 } 
@@ -205,7 +220,7 @@ async function login(req: Request, res: Response) {
         }
 
         const token = generateToken(user.id);
-        const permissions = user.role?.permissions?.map(p => p.name) || [];
+        const permissions = user.role?.permissions?.map(p => p.action) || []; // ✅ Corrected mapping
 
         return res.status(200).json({
             message: 'Login successful',
@@ -224,6 +239,7 @@ async function login(req: Request, res: Response) {
         return res.status(500).json({ message: 'Internal server error' });
     }
 }
+
 
 export default {
     register,

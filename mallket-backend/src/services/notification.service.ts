@@ -39,15 +39,18 @@ export const sendNotification = async ({
 
 
 // Optionally send to many users
+
 export const sendBulkNotifications = async (
   users: string[],
   title: string,
-  message: string
+  message: string,
+  type: NotificationType = NotificationType.INFO // default type if you want
 ) => {
   const notifications = users.map(userId => ({
     userId,
     title,
     message,
+    type,       // <- required field added here
     isRead: false,
   }));
 
@@ -55,5 +58,6 @@ export const sendBulkNotifications = async (
     data: notifications,
   });
 };
+
 
 

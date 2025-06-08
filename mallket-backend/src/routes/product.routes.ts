@@ -15,9 +15,9 @@ const router = Router();
 router.get('/', asyncHandler(getAllProducts));  
 router.get('/:id', asyncHandler(getProductById));
 
-// 🔐 **Role-based protected routes (Permissions fetched dynamically)**
-router.post('/', protect, authorizeAction, asyncHandler(createProduct));  // Auto-checks required permission dynamically
-router.put('/:id', protect, authorizeAction, asyncHandler(updateProduct)); // Auto-checks required permission dynamically
-router.delete('/:id', protect, authorizeAction, asyncHandler(deleteProduct)); // Auto-checks required permission dynamically
+// 🔐 **Role-based asyncHandler(protect)ed routes (Permissions fetched dynamically)**
+router.post('/', asyncHandler(protect), asyncHandler(authorizeAction), asyncHandler(createProduct));  // Auto-checks required permission dynamically
+router.put('/:id', asyncHandler(protect), asyncHandler(authorizeAction), asyncHandler(updateProduct)); // Auto-checks required permission dynamically
+router.delete('/:id', asyncHandler(protect), asyncHandler(authorizeAction), asyncHandler(deleteProduct)); // Auto-checks required permission dynamically
 
 export default router;
