@@ -20,6 +20,9 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.status(200).send('MallKet backend is alive!');
 });
+app.get('/health', (req, res) => {
+  res.status(200).send('MallKet backend is alive!');
+});
 
 
 
