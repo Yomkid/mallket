@@ -7,7 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config(); // 👈 Load env variables from .env
 const app_1 = __importDefault(require("./app"));
-const PORT = process.env.PORT || 5000;
-app_1.default.listen(PORT, () => {
-    console.log(`MallKet backend is running on http://localhost:${PORT}`);
+const PORT = Number(process.env.PORT) || 5000;
+app_1.default.listen(PORT, '0.0.0.0', () => {
+    console.log(`MallKet backend is running on port ${PORT}`);
 });
