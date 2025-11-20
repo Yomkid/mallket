@@ -41,70 +41,100 @@ interface UserWithPermissions {
 const routePermissionCache = new Map<string, string>();
 
 export const protect = async (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
+  // Try both Authorization header and cookie
+  const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
 
-  if (!authHeader?.startsWith('Bearer ')) {
-    return res.status(401).json({ message: "No authentication token provided" });
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required"
+    });
   }
 
-  const token = authHeader.split(' ')[1];
-
   try {
-    // Check token blacklist first
+    // Check token blacklist
     const blacklisted = await prisma.blacklistedToken.findFirst({
       where: { token },
     });
 
-
     if (blacklisted) {
-      return res.status(401).json({ message: "Token is no longer valid" });
+      res.clearCookie('token');
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please log in again."
+      });
     }
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as DecodedToken;
 
-    // Get user with permissions
+    // Get complete user with permissions
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: {
-        id: true,
-        email: true, // ✅ Add this line
-        isBanned: true,
+      include: {
         role: {
-          select: {
+          include: {
             permissions: {
               select: {
+                id: true,
                 action: true,
-              },
-            },
-          },
-        },
-      },
+                description: true
+              }
+            }
+          }
+        }
+      }
     });
 
-
     if (!user) {
-      return res.status(401).json({ message: "User account not found" });
+      res.clearCookie('token');
+      return res.status(401).json({
+        success: false,
+        message: "User account not found"
+      });
     }
 
     if (user.isBanned) {
-      return res.status(403).json({ message: "Account suspended" });
+      res.clearCookie('token');
+      return res.status(403).json({
+        success: false,
+        message: "Account suspended. Please contact support."
+      });
     }
 
-    // Attach user to request
-    req.user = user as UserWithPermissions;
+    // Build complete user object for request
+    req.user = {
+      id: user.id,
+      email: user.email,
+      isBanned: user.isBanned,
+      role: user.role ? {
+        id: user.role.id,
+        name: user.role.name,
+        description: user.role.description,
+        permissions: user.role.permissions.map(p => ({
+          id: p.id,
+          action: p.action,
+          description: p.description
+        }))
+      } : null
+    };
+
     next();
   } catch (err) {
+    res.clearCookie('token');
     console.error("Authentication error:", err);
 
-    let message = "Invalid token";
+    let message = "Invalid session";
     if (err instanceof jwt.TokenExpiredError) {
-      message = "Token expired";
+      message = "Session expired. Please log in again.";
     } else if (err instanceof jwt.JsonWebTokenError) {
-      message = "Malformed token";
+      message = "Invalid authentication token";
     }
 
-    return res.status(401).json({ message });
+    return res.status(401).json({
+      success: false,
+      message
+    });
   }
 };
 

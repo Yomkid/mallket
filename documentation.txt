@@ -236,3 +236,356 @@ POST /api/auth/ban-user/:userId
 http://localhost:5000/api/auth/unban-user/50c62a06-1b5e-4a74-b621-9a49da89b272
 
 AuditLog is working for BAN and UNBAN User
+
+
+NOTIFICATION section
+✅ Step 4: Frontend Ideas (Optional)
+In your frontend (e.g. React, Vue):
+
+Show a notification bell with count of unread notifications.
+
+Use tooltips or modals to show notification detail.
+
+Auto-link if notification.link is set.
+
+Let users mark notifications as read.
+
+
+await sendNotification({
+  userId,
+  type: NotificationType.SECURITY,
+  title: 'Account Banned',
+  message: 'Your account has been banned due to security reasons.',
+});
+
+await sendNotification({
+  userId,
+  type: NotificationType.ORDER,
+  title: 'Order Shipped',
+  message: 'Your order #1234 has been shipped.',
+});
+
+await sendNotification({
+  userId,
+  type: NotificationType.PROMOTION,
+  title: 'Special Offer',
+  message: 'Get 20% off on your next purchase!',
+});
+
+
+import { NotificationTemplates } from '../constants/notifications';
+
+await sendNotification({
+    userId,
+    ...NotificationTemplates.USER_BANNED
+});
+
+
+
+✅ 1. Notification Controller
+Handles the endpoints like:
+
+GET /api/notifications – Get all notifications for logged-in user.
+
+PATCH /api/notifications/:id/read – Mark a specific notification as read.
+
+DELETE /api/notifications/:id – (Optional) Delete a specific notification.
+
+DELETE /api/notifications – (Optional) Clear all notifications for user.
+
+
+http://localhost:5000/api/notifications/cc745265-d863-4bea-8450-15089f53c849/read
+| id | route                        | permission            |
+| -- | ---------------------------- | --------------------- |
+| 1  | /api/notifications           | read\_notifications   |
+| 2  | /api/notifications/\:id/read | mark\_notifications   |
+| 3  | /api/notifications/\:id      | delete\_notifications |
+
+
+import { sendNotification } from '../services/notification.service';
+
+await sendNotification({
+  userId: order.userId,
+  title: 'Order Confirmed',
+  message: `Your order #${order.id} has been received and is being processed.`,
+});
+
+
+
+http://localhost:5000/api/notifications/bulk
+
+{
+  "users": ["3fa5012f-6794-4fa7-aff7-d6001c64bc19", "50c62a06-1b5e-4a74-b621-9a49da89b272", "5524d6fa-cf7f-4178-b762-2f82b8ab8fb1"],
+  "type": "SYSTEM",
+  "title": "Course Launched",
+  "message": "A new course is now available",
+  "link": "/courses"
+}
+
+
+Great question, Mayomi.
+
+Let’s break it down clearly:
+
+---
+
+## ✅ What You Currently Have
+
+The notification system you implemented using `prisma.notification.create()` is for **in-app notifications**.
+
+### 🔔 In-App Notification:
+
+* Stored in your database (`notification` table)
+* Can be shown inside your app (e.g., a bell icon dropdown)
+* User sees it **only when they log into the app**
+* **Your current implementation** (`sendNotification` and `sendBulkNotifications`) handles this.
+
+---
+
+## ✉️ Email Notification (Mail)
+
+Email notifications are sent via an **email service** (e.g., Nodemailer, SendGrid, Mailgun, etc.).
+
+* User gets notified **outside** the app.
+* Used for important, account-critical updates or things that need user’s attention even if they are offline.
+
+---
+
+## 🔁 When to Use What?
+
+| Event / Trigger                                              | In-App Only | Email Only      | In-App + Email |
+| ------------------------------------------------------------ | ----------- | --------------- | -------------- |
+| ✅ Account Banned / Suspended                                 |             | ✅               | ✅              |
+| ✅ Password Change / Reset                                    |             | ✅               | ✅              |
+| ✅ New Order / Transaction Update (e.g., for buyer or seller) | ✅           | ✅               | ✅              |
+| ✅ Admin Announcements (non-critical)                         | ✅           |                 |                |
+| ✅ Low Wallet Balance / Alert                                 | ✅           | ✅ (if critical) | ✅              |
+| ✅ Promotional Messages                                       | ✅           | ✅ (optional)    | optional       |
+| ✅ New Message / Chat                                         | ✅           | (optional)      | optional       |
+| ✅ Security Alerts (new login, suspicious activity)           | ✅           | ✅               | ✅              |
+| ✅ Welcome Message After Signup                               | ✅           | ✅               | ✅              |
+| ✅ Verification Links (email, phone)                          |             | ✅               |                |
+
+---
+
+## ✅ Action Plan for You
+
+### 1. **In-App Notifications**
+
+You already have this covered via:
+
+```ts
+await sendNotification({ ... });
+```
+
+You can use this for:
+
+* General alerts
+* Announcements
+* Account changes
+
+---
+
+### 2. **Email Notifications**
+
+To implement this, you need to set up a **mailer utility** (e.g., using Nodemailer).
+
+Would you like help with setting up this mailer in your project?
+Then for each event (like `account banned`), you’d call both:
+
+```ts
+await sendNotification({ ... }); // in-app
+await sendMail({ ... });         // email
+```
+
+---
+
+### 3. **Combined Notifications**
+
+For critical actions like **banning users**, or **order confirmations**, you'd call both utils:
+
+```ts
+await sendNotification({ ... }); // in-app
+await sendMail({ to: user.email, subject, htmlBody }); // email
+```
+
+---
+
+Let me know if you'd like a full working example of `sendMail` and how to call both `sendNotification` + `sendMail` in one go.
+
+
+Banning and Unbanning user must have reasons
+{
+  "reason": "Violation of community guidelines"
+}
+
+this is how the code will be
+ console.log('Body:', req.body); // ⬅️ Add this line
+        const { reason } = req.body;
+
+        // Validate
+        if (!reason) {
+            return res.status(400).json({ message: 'Reason is required' });
+        }
+        // Send notification (in-app + email) and log audit
+        await notifyUser({
+            req,
+            userId,
+            email: user.email, // ✅ Make sure to include this
+            type: NotificationType.SECURITY,
+            title: 'Account Banned',
+            message: `${reason}`,
+            link: '/help/account-status',
+            reason: `${reason}`,
+        });
+
+
+
+
+
+
+
+
+
+
+Got it! You want to know which notification channels are essential for email verification and possibly password reset flows, and what best practices to follow regarding sending notifications (in-app, email, audit logs, etc).
+
+Best Practices for Email Verification and Password Reset Notifications:
+1. Email Verification
+Essential notification channel:
+
+Email: This is critical because the user needs to receive the verification link or confirmation.
+
+Recommended but optional:
+
+In-app notification: Helpful if the user is already logged in or comes back later — it can reinforce the success message or show a welcome alert.
+
+Audit log (internal): Always a good idea to keep an internal audit trail that the user verified their email (for security, compliance, or troubleshooting).
+
+Summary for email verification:
+
+Must send email notification (verification link).
+
+Optionally send in-app notification on successful verification.
+
+Always log the event internally (audit).
+
+2. Password Reset
+Essential notification channel:
+
+Email: This is critical because the reset link or temporary password is sent here.
+
+Recommended but optional:
+
+In-app notification: Inform user if logged in that their password has changed, or when reset request is made — can help detect fraud.
+
+Audit log (internal): Log reset requests and completions with timestamps and IPs for security.
+
+Summary for password reset:
+
+Must send email notification (reset instructions).
+
+Recommended to send in-app notification for password change confirmation.
+
+Always log the event internally (audit).
+
+What you likely have now:
+Email verification: You send an email with the verification link.
+
+Password reset: You send an email with reset instructions.
+
+If you want to improve, you should:
+
+Add in-app notifications for confirmation of email verification and password change success.
+
+Add audit logs in your database or logging system for these events.
+
+Your notifyUser function
+You can enhance notifyUser to optionally send notifications by type:
+
+ts
+Copy
+Edit
+interface NotifyOptions {
+  req: Request;
+  userId: string;
+  email: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+  reason?: string;
+  channels?: ('email' | 'in-app' | 'audit')[];
+}
+Example call for email verification success:
+
+ts
+Copy
+Edit
+await notifyUser({
+  req,
+  userId: user.id,
+  email: user.email!,
+  type: NotificationType.SYSTEM,
+  title: 'Welcome to MallKet!',
+  message: 'Your account has been successfully verified. Start shopping now!',
+  link: '/dashboard',
+  reason: 'New user registration',
+  channels: ['in-app', 'audit'], // No email here because this is a confirmation, not an instruction
+});
+Example call for sending the initial verification email (somewhere else in your code):
+
+ts
+Copy
+Edit
+await notifyUser({
+  req,
+  userId: user.id,
+  email: user.email!,
+  type: NotificationType.SYSTEM,
+  title: 'Please verify your email',
+  message: 'Click the link to verify your email address.',
+  link: verificationUrl,
+  reason: 'Email verification',
+  channels: ['email', 'audit'], // Email + audit, no in-app since user not verified yet
+});
+TL;DR for you:
+Notification Purpose	Email	In-App	Audit Log
+Send verification link	✅	❌	✅
+Confirm email verified	❌ (optional)	✅	✅
+Send password reset link	✅	❌	✅
+Confirm password changed	❌ (optional)	✅	✅
+
+Would you like me to help:
+Write or improve the notifyUser function to support multiple channels?
+
+Write sample code for password reset notifications?
+
+Set up audit logging for these events?
+
+Just let me know!
+
+
+
+
+{
+  "reason": "Violation of community guidelines. You have repeatedly misused platform features, received multiple reports from users, logged inappropriate behavior, and violated terms and conditions. Your account will start working again as it is a perk."
+}
+
+
+
+{
+  "reason": "Your account has been successfully reinstated after a review. You provided sufficient evidence for reinstatement, acknowledged the previous violation, completed the required training, and agreed to comply with community standards. Please ensure continued compliance to avoid future restrictions."
+}
+
+
+
+
+mallket-backend/
+├── controllers/          # Handle request/response logic
+├── services/             # Business logic (e.g., DB access)
+├── routes/               # Define routes (e.g., /auth/google)
+├── middlewares/          # Middlewares (e.g., isAuthenticated)
+├── utils/                # Utility functions (e.g., token, config)
+└── sso/                  # ✅ Create this folder for SSO strategy config (optional)
+

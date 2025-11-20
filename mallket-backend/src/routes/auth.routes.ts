@@ -14,7 +14,9 @@ import {
     updatePassword,
     updateProfile,
     createRole,
-    listRoles
+    listRoles,
+    googleLogin
+
 } from '../controllers/auth.controller';
 import {
     protect,
@@ -22,6 +24,8 @@ import {
     authorizeAction
 } from '../middlewares/auth.middleware';
 import { rateLimit } from 'express-rate-limit';
+import passport from "../utils/passport"; // or wherever your passport config is
+
 
 const router = Router();
 
@@ -40,6 +44,14 @@ router.post('/resend-verification', authLimiter, asyncHandler(resendVerification
 router.post('/request-password-reset', authLimiter, asyncHandler(requestPasswordReset));
 router.post('/reset-password', authLimiter, asyncHandler(resetPassword));
 
+router.post('/test-logout', (req, res) => {
+  res.send('Test logout route reached!');
+});
+
+router.post('/logout', asyncHandler(logout)); // protect removed temporarily
+
+
+
 // asyncHandler(protect)ed route
 router.post('/logout', asyncHandler(protect), asyncHandler(logout));
 
@@ -55,5 +67,14 @@ router.put('/update-profile', asyncHandler(protect), asyncHandler(updateProfile)
 // Role Management (admin only)
 router.post('/roles', asyncHandler(protect), asyncHandler(requireRole), asyncHandler(authorizeAction), asyncHandler(createRole));
 router.get('/roles', asyncHandler(protect), asyncHandler(requireRole), asyncHandler(authorizeAction), asyncHandler(listRoles));
+
+
+// SSO and OAuth routes can be added here if needed in the future
+
+// POST /api/auth/google
+router.post('/google', googleLogin);
+
+
+
 
 export default router;

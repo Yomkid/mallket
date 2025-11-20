@@ -98,7 +98,7 @@ model User {
   firstName          String
   lastName           String
   email              String       @unique @db.VarChar(255)
-  password           String       @db.VarChar(255)
+  password           String?      @db.VarChar(255)
   provider           AuthProvider @default(LOCAL)
   providerId         String?
   emailVerified      Boolean      @default(false)
