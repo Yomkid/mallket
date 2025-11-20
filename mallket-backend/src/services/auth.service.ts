@@ -1,19 +1,38 @@
 // services/auth.service.ts
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
 import { Request, Response } from 'express';
 import prisma from '../config/prisma';
-import { sendEmail } from '../utils/sendEmail';
+import { sendMail } from '../utils/sendEmail';
+import { verifyGoogleToken } from '../utils/googleAuth';
+
+
 
 // Environment configuration
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    throw new Error('JWT_SECRET is not defined in environment variables');
-}
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+import { getEnvVar } from '../utils/env';
+
+// const JWT_SECRET = getEnvVar('JWT_SECRET');
+// const JWT_EXPIRES_IN = getEnvVar('JWT_EXPIRES_IN', '7d');
+
 const SALT_ROUNDS = 12; // Increased for better security
 const TOKEN_EXPIRATION_HOURS = 1;
+
+
+// Token utilities
+// JWT_EXPIRES_IN should be typed as ms.StringValue
+const JWT_SECRET: string = getEnvVar('JWT_SECRET');
+const JWT_EXPIRES_IN = getEnvVar('JWT_EXPIRES_IN', '7d') as jwt.Jwt | string; // explicitly asserting to string
+
+export function generateToken(userId: string): string {
+    const payload = { userId };
+    const options: SignOptions = {
+        expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'], // ✅ fixes the type error
+    };
+
+    return jwt.sign(payload, JWT_SECRET, options);
+}
+
 
 // Password utilities
 export async function hashPassword(password: string): Promise<string> {
@@ -21,16 +40,14 @@ export async function hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, SALT_ROUNDS);
 }
 
+
+
 export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
     if (!password || !hashedPassword) return false;
     return bcrypt.compare(password, hashedPassword);
 }
 
-// Token utilities
-export function generateToken(userId: string): string {
-    if (!userId) throw new Error('User ID is required');
-    return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-}
+
 
 export function generateRandomToken(length = 64): string {
     return crypto.randomBytes(Math.ceil(length / 2))
@@ -41,7 +58,7 @@ export function generateRandomToken(length = 64): string {
 // Email utilities
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
     if (!email || !token) throw new Error('Email and token are required');
-    
+
     const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
     const expirationHours = TOKEN_EXPIRATION_HOURS;
 
@@ -54,6 +71,8 @@ export async function sendVerificationEmail(email: string, token: string): Promi
                       text-decoration: none; border-radius: 4px; margin: 15px 0;">
                 Verify Email
             </a>
+            <p>If you prefer, you can also copy and paste the following link into your browser: ${verificationUrl}</p>
+
             <p>This link will expire in ${expirationHours} hour${expirationHours !== 1 ? 's' : ''}.</p>
             <p>If you didn't request this, please ignore this email.</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
@@ -64,7 +83,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
         </div>
     `;
 
-    await sendEmail({
+    await sendMail({
         to: email,
         subject: 'Verify Your Account',
         html,
@@ -73,7 +92,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
 
 export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
     if (!email || !token) throw new Error('Email and token are required');
-    
+
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
     const expirationHours = TOKEN_EXPIRATION_HOURS;
 
@@ -86,6 +105,8 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
                       text-decoration: none; border-radius: 4px; margin: 15px 0;">
                 Reset Password
             </a>
+            <p>If you prefer, you can also copy and paste the following link into your browser: ${resetUrl}</p>
+
             <p>This link will expire in ${expirationHours} hour${expirationHours !== 1 ? 's' : ''}.</p>
             <p>If you didn't request a password reset, please ignore this email or contact support.</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
@@ -95,7 +116,7 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
         </div>
     `;
 
-    await sendEmail({
+    await sendMail({
         to: email,
         subject: 'Password Reset Instructions',
         html,
@@ -178,14 +199,14 @@ async function login(req: Request, res: Response) {
 
         const user = await prisma.user.findUnique({
             where: { email },
-            include: { 
-                role: { 
-                    include: { 
-                        permissions: { 
-                            select: { name: true } 
-                        } 
-                    } 
-                } 
+            include: {
+                role: {
+                    include: {
+                        permissions: {
+                            select: { action: true } // ✅ Corrected field
+                        }
+                    }
+                }
             },
         });
 
@@ -198,14 +219,14 @@ async function login(req: Request, res: Response) {
         }
 
         if (!user.emailVerified) {
-            return res.status(403).json({ 
+            return res.status(403).json({
                 message: 'Please verify your email before logging in',
                 resendVerification: true,
             });
         }
 
         const token = generateToken(user.id);
-        const permissions = user.role?.permissions?.map(p => p.name) || [];
+        const permissions = user.role?.permissions?.map(p => p.action) || []; // ✅ Corrected mapping
 
         return res.status(200).json({
             message: 'Login successful',
@@ -225,6 +246,89 @@ async function login(req: Request, res: Response) {
     }
 }
 
+
+
+export const googleLoginService = async (token: string, res?: Response) => {
+    const googleUser = await verifyGoogleToken(token);
+
+    const { email, firstName, lastName, providerId } = googleUser;
+
+    if (!email || !firstName || !lastName || !providerId) {
+        throw new Error('Missing required Google user info');
+    }
+
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+        const role = await prisma.role.findUnique({ where: { name: 'CUSTOMER' } });
+        if (!role) throw new Error('Default role CUSTOMER not found');
+
+        user = await prisma.user.create({
+            data: {
+                email,
+                firstName,
+                lastName,
+                provider: 'GOOGLE',
+                providerId,
+                emailVerified: true,
+                roleId: role.id,
+            },
+        });
+    }
+
+    const userWithRole = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: {
+            role: {
+                include: {
+                    permissions: { select: { action: true } },
+                },
+            },
+        },
+    });
+
+    const jwtToken = generateToken(user.id);
+
+    // Set HTTP-only cookie if response object is provided
+    if (res) {
+        res.cookie('token', jwtToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+    }
+
+    // ✅ Save session to DB
+    await prisma.session.create({
+        data: {
+            userId: user.id,
+            token: jwtToken,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        },
+    });
+
+
+    const permissions = userWithRole?.role?.permissions?.map(p => p.action) || [];
+
+    return {
+        jwtToken,
+        user: {
+            id: userWithRole?.id,
+            email: userWithRole?.email,
+            firstName: userWithRole?.firstName,
+            lastName: userWithRole?.lastName,
+            role: userWithRole?.role?.name,
+            permissions,
+        },
+    };
+};
+
+
+
+
+
+
 export default {
     register,
     login,
@@ -234,4 +338,5 @@ export default {
     generateRandomToken,
     sendVerificationEmail,
     sendPasswordResetEmail,
+    googleLoginService,
 };

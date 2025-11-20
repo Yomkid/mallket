@@ -4,36 +4,57 @@ const getAllProducts = async () => {
   return await prisma.product.findMany();
 };
 
-const getProductById = async (id: number) => {
+const getProductById = async (id: string) => {
   return await prisma.product.findUnique({ where: { id } });
 };
-
 
 const createProduct = async (data: {
   name: string;
   price: number;
-  stock: number;
   description?: string;
   images: string[];
-  categoryId?: string; // Ensure it's optional if needed
+  categoryIds?: string[]; // accept multiple categories by IDs
 }) => {
-  return await prisma.product.create({ data });
-};
+  const { categoryIds, ...productData } = data;
 
-
-const updateProduct = async (id: number, data: Partial<{
-  name: string;
-  price: number;
-  description: string;
-  imageUrl: string;
-}>) => {
-  return await prisma.product.update({
-    where: { id },
-    data,
+  return await prisma.product.create({
+    data: {
+      ...productData,
+      categories: categoryIds
+        ? {
+            connect: categoryIds.map(id => ({ id })),
+          }
+        : undefined,
+    },
   });
 };
 
-const deleteProduct = async (id: number) => {
+const updateProduct = async (
+  id: string,
+  data: Partial<{
+    name: string;
+    price: number;
+    description: string;
+    images: string[];
+    categoryIds: string[];
+  }>
+) => {
+  const { categoryIds, ...productData } = data;
+
+  return await prisma.product.update({
+    where: { id },
+    data: {
+      ...productData,
+      categories: categoryIds
+        ? {
+            set: categoryIds.map(id => ({ id })), // replace categories
+          }
+        : undefined,
+    },
+  });
+};
+
+const deleteProduct = async (id: string) => {
   return await prisma.product.delete({ where: { id } });
 };
 

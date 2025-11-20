@@ -1,0 +1,53 @@
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import passport from 'passport';
+import prisma from '../config/prisma';
+import { AuthProvider } from '@prisma/client';
+
+passport.use(new GoogleStrategy(
+    {
+        clientID: process.env.GOOGLE_CLIENT_ID || '',
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+        callbackURL: '/auth/google/callback',
+    },
+    async (_accessToken, _refreshToken, profile, done) => {
+        try {
+            const email = profile.emails?.[0].value;
+            if (!email) return done(null, false);
+
+            let user = await prisma.user.findUnique({ where: { email } });
+
+            if (!user) {
+                // Fetch the default role if applicable
+                const defaultRole = await prisma.role.findFirst({ where: { name: 'User' } });
+
+                user = await prisma.user.create({
+                    data: {
+                        email,
+                        firstName: profile.name?.givenName || '',
+                        lastName: profile.name?.familyName || '',
+                        provider: AuthProvider.GOOGLE,
+                        providerId: profile.id,
+                        isBanned: false,
+                        emailVerified: true,
+                        roleId: defaultRole?.id ?? undefined, // Ensuring undefined if role isn't found
+                    },
+                });
+            } else if (user.provider !== AuthProvider.GOOGLE) {
+                // If the user exists but was created with a different provider, update it
+                user = await prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        provider: AuthProvider.GOOGLE,
+                        providerId: profile.id,
+                        firstName: profile.name?.givenName || user.firstName,
+                        lastName: profile.name?.familyName || user.lastName,
+                    },
+                });
+            }
+
+            return done(null, user);
+        } catch (err) {
+            return done(err, null);
+        }
+    }
+));

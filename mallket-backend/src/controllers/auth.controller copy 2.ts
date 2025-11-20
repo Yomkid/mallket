@@ -1,7 +1,120 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import authService from '../services/auth.service';
-import prisma from '../config/prisma';
+import { PrismaClient, NotificationType } from "@prisma/client";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { sendMail } from '../utils/sendEmail';
+import { logAudit } from '../utils/auditLog';
+import { sendNotification } from '../utils/notification';
+import { generateNotificationEmail } from '../utils/emailTemplate';
+import { notifyUser } from '../services/multiNotification.service';
+
+
+
+
+const prisma = new PrismaClient();
+const SESSION_EXPIRY = 1000 * 60 * 60 * 24 * 7; // 7 days
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION = 15 * 60 * 1000; // 15 minutes
+
+export const login = async (req: Request, res: Response) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required" });
+        }
+
+        // ✅ Find user
+        const user = await prisma.user.findUnique({
+            where: { email },
+            include: {
+                role: { include: { permissions: true } },
+                addresses: true,
+            },
+        });
+
+        if (!user || !user.password) {
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        // ✅ Check if account is locked
+        if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+            return res.status(403).json({ message: "Account locked due to too many failed attempts. Try again later." });
+        }
+
+        if (user.isBanned) {
+            return res.status(403).json({ message: "Your account has been banned." });
+        }
+
+
+        // ✅ Verify password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { loginAttempts: user.loginAttempts + 1 }
+            });
+
+            if (user.loginAttempts + 1 >= MAX_LOGIN_ATTEMPTS) {
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { lockedUntil: new Date(Date.now() + LOCK_DURATION) }
+                });
+            }
+
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        // ✅ Generate JWT session token
+        if (!process.env.JWT_SECRET) {
+            throw new Error("JWT_SECRET environment variable is not set");
+        }
+        const sessionToken = jwt.sign({ userId: user.id, role: user.roleId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+        const expiresAt = new Date(Date.now() + SESSION_EXPIRY);
+
+        await prisma.session.create({
+            data: {
+                userId: user.id,
+                token: sessionToken,
+                ipAddress: req.ip ?? "Unknown",
+                userAgent: req.headers["user-agent"] ?? "Unknown",
+                expiresAt,
+            }
+        });
+
+        // ✅ Update last login & reset failed attempts
+        const updatedUser = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                lastLogin: new Date(),
+                loginAttempts: 0,
+                lockedUntil: null,
+            },
+            include: {
+                role: { include: { permissions: true } },
+                addresses: true,
+            }
+        });
+
+        // ✅ Send response
+        const { password: _, verifyToken: __, verifyExpires: ___, resetToken, resetExpires, ...userWithoutSensitiveData } = updatedUser;
+
+        res.status(200).json({
+            message: "Login successful",
+            token: sessionToken,
+            user: userWithoutSensitiveData,
+        });
+
+    } catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+
+
 
 // 🔐 REGISTER
 export const register = async (req: Request, res: Response) => {
@@ -80,13 +193,31 @@ export const register = async (req: Request, res: Response) => {
                 verifyToken,
                 verifyExpires,
                 roleId: role.id,
-                addresses: address ? { create: [address] } : undefined,
+                addresses: address ? {
+                    create: [
+                        {
+                            firstName: address.firstName ?? firstName, // Ensure fallback values
+                            lastName: address.lastName ?? lastName,
+                            line1: address.line1 ?? "Unknown Street",
+                            line2: address.line2 ?? null,
+                            city: address.city ?? "Unknown City",
+                            state: address.state ?? "Unknown State",
+                            postalCode: address.postalCode ?? "000000",
+                            country: address.country ?? "Unknown Country",
+                            phone: address.phone ?? null,
+                            isDefault: address.isDefault ?? true
+                        }
+                    ]
+                } : undefined
             },
             include: {
                 role: { include: { permissions: true } },
-                addresses: true,
-            },
+                addresses: true
+            }
         });
+
+
+
 
         // Send verification email
         await authService.sendVerificationEmail(newUser.email, verifyToken);
@@ -104,57 +235,9 @@ export const register = async (req: Request, res: Response) => {
     }
 };
 
-// 🔑 LOGIN
-export const login = async (req: Request, res: Response) => {
-    try {
-        const { email, password } = req.body;
 
-        // Validate required fields
-        if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are required" });
-        }
 
-        const user = await prisma.user.findUnique({
-            where: { email },
-            include: {
-                role: { include: { permissions: true } },
-                addresses: true,
-            },
-        });
 
-        if (!user || !user.password) {
-            return res.status(401).json({ message: "Invalid credentials" });
-        }
-
-        const isMatch = await authService.comparePassword(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ message: "Invalid credentials" });
-        }
-
-        if (!user.emailVerified) {
-            return res.status(403).json({
-                message: "Please verify your email before logging in",
-                resendVerification: true
-            });
-        }
-
-        const token = authService.generateToken(user.id);
-
-        // Remove sensitive data before sending response
-        const { password: _, verifyToken: __, verifyExpires: ___, resetToken: resetToken, resetExpires: resetExpires, ...userWithoutSensitiveData } = user;
-
-        res.status(200).json({
-            message: "Login successful",
-            token,
-            user: userWithoutSensitiveData,
-        });
-    } catch (error) {
-        console.error("Login Error:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-};
-
-// 🚪 LOGOUT
 export const logout = async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
@@ -162,12 +245,13 @@ export const logout = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "No token provided" });
         }
 
-        await prisma.blacklistedToken.create({
-            data: {
-                token,
-                expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7) // Expire in 7 days
-            }
-        });
+        // ✅ Verify session exists before deletion
+        const session = await prisma.session.findUnique({ where: { token } });
+        if (!session) {
+            return res.status(404).json({ message: "Session not found or already logged out." });
+        }
+
+        await prisma.session.delete({ where: { token } });
 
         res.status(200).json({ message: "Logged out successfully!" });
     } catch (error) {
@@ -175,6 +259,8 @@ export const logout = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+
 
 // ✅ VERIFY EMAIL
 export const verifyEmail = async (req: Request, res: Response) => {
@@ -308,10 +394,15 @@ export const resetPassword = async (req: Request, res: Response) => {
         }
 
         // Check if new password is different from current password
-        const isSamePassword = await authService.comparePassword(newPassword, user.password);
-        if (isSamePassword) {
+         if (!user || !user.password) {
+            return res.status(401).json({ message: "Invalid user" });
+        }
+
+        const isMatch = await authService.comparePassword(newPassword, user.password);
+        if (!isMatch) {
             return res.status(400).json({ message: "New password must be different from current password" });
         }
+
 
         const hashedPassword = await authService.hashPassword(newPassword);
 
@@ -335,7 +426,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 // 🚫 BAN USER
 export const banUser = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = req.params.userId;
 
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
@@ -347,22 +438,89 @@ export const banUser = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "User is already banned" });
         }
 
+        // Update user as banned
         await prisma.user.update({
             where: { id: userId },
             data: { isBanned: true },
         });
 
-        res.status(200).json({ message: "User has been banned successfully" });
+
+
+        // Optionally blacklist active session tokens if available
+        const sessions = await prisma.session.findMany({
+            where: { userId },
+        });
+
+        // 2. In-App Notification
+        await sendNotification({
+            userId,
+            type: NotificationType.SECURITY,
+            title: 'Account Banned',
+            message: 'Your account has been banned due to security violations.',
+            link: '/support',
+        });
+
+        // 3. Email Notification
+        const emailHTML = generateNotificationEmail(
+            'Account Banned',
+            'Your MallKet account has been banned due to security violations. If this is a mistake, please contact our support team.',
+            'https://mallket.com/support'
+        );
+
+        await sendMail({
+            to: user.email,
+            subject: 'MallKet Account Banned',
+            html: emailHTML,
+        });
+
+        // 4. Audit Log
+        await logAudit({
+            req,
+            action: 'BAN_USER',
+            entity: 'User',
+            entityId: userId,
+            metadata: {
+                reason: 'Security policy violation',
+                title: 'Account Banned',
+                bannedEmail: user.email,
+                sentBy: req.user?.email || 'system',
+                timestamp: new Date().toISOString(),
+            },
+        });
+
+
+
+
+
+
+        for (const session of sessions) {
+            await prisma.blacklistedToken.upsert({
+                where: { token: session.token },
+                update: {},
+                create: {
+                    token: session.token,
+                    userId,
+                    reason: 'User banned',
+                },
+            });
+        }
+
+        // res.status(200).json({ message: "User has been banned successfully" });
+        res.status(200).json({ message: 'User banned, notifications and email sent' });
+
     } catch (error) {
         console.error("Ban user error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
 
+
+
 // ✅ UNBAN USER
 export const unbanUser = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = req.params.userId;
+        
 
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
@@ -374,10 +532,39 @@ export const unbanUser = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "User is not currently banned" });
         }
 
+        // Unban the user
         await prisma.user.update({
             where: { id: userId },
             data: { isBanned: false },
         });
+
+        // Remove blacklisted tokens associated with the user
+        await prisma.blacklistedToken.deleteMany({
+            where: { userId },
+        });
+
+
+
+        console.log('Body:', req.body); // ⬅️ Add this line
+        const { reason } = req.body;
+
+        // Validate
+        if (!reason) {
+            return res.status(400).json({ message: 'Reason is required' });
+        }
+        // Send notification (in-app + email) and log audit
+        await notifyUser({
+            req,
+            userId,
+            email: user.email, // ✅ Make sure to include this
+            type: NotificationType.SECURITY,
+            title: 'Account Banned',
+            message: `${reason}`,
+            link: '/help/account-status',
+            reason: `${reason}`,
+        });
+
+
 
         res.status(200).json({ message: "User has been unbanned successfully" });
     } catch (error) {

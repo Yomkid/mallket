@@ -8,7 +8,7 @@ export const getAllProducts = async (_req: Request, res: Response) => {
 
 export const getProductById = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const product = await productService.getProductById(Number(id));
+  const product = await productService.getProductById(id);
   if (!product) {
     return res.status(404).json({ message: 'Product not found' });
   }
@@ -22,12 +22,12 @@ export const createProduct = async (req: Request, res: Response) => {
 
 export const updateProduct = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const updatedProduct = await productService.updateProduct(Number(id), req.body);
+  const updatedProduct = await productService.updateProduct((id), req.body);
   res.json(updatedProduct);
 };
 
 export const deleteProduct = async (req: Request, res: Response) => {
   const { id } = req.params;
-  await productService.deleteProduct(Number(id));
+  await productService.deleteProduct((id));
   res.status(204).send();
 };

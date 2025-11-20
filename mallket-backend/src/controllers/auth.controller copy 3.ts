@@ -1,109 +1,20 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import authService from '../services/auth.service';
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, NotificationType } from "@prisma/client";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { notifyAdmins, notifyUser } from '../services/multiNotification.service';
+import { googleLoginService } from '../services/auth.service';
+
+
+
 
 const prisma = new PrismaClient();
 const SESSION_EXPIRY = 1000 * 60 * 60 * 24 * 7; // 7 days
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_DURATION = 15 * 60 * 1000; // 15 minutes
-
-export const login = async (req: Request, res: Response) => {
-    try {
-        const { email, password } = req.body;
-
-        if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are required" });
-        }
-
-        // ✅ Find user
-        const user = await prisma.user.findUnique({
-            where: { email },
-            include: {
-                role: { include: { permissions: true } },
-                addresses: true,
-            },
-        });
-
-        if (!user || !user.password) {
-            return res.status(401).json({ message: "Invalid credentials" });
-        }
-
-        // ✅ Check if account is locked
-        if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
-            return res.status(403).json({ message: "Account locked due to too many failed attempts. Try again later." });
-        }
-
-        if (user.isBanned) {
-            return res.status(403).json({ message: "Your account has been banned." });
-        }
-
-
-        // ✅ Verify password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { loginAttempts: user.loginAttempts + 1 }
-            });
-
-            if (user.loginAttempts + 1 >= MAX_LOGIN_ATTEMPTS) {
-                await prisma.user.update({
-                    where: { id: user.id },
-                    data: { lockedUntil: new Date(Date.now() + LOCK_DURATION) }
-                });
-            }
-
-            return res.status(401).json({ message: "Invalid credentials" });
-        }
-
-        // ✅ Generate JWT session token
-        if (!process.env.JWT_SECRET) {
-            throw new Error("JWT_SECRET environment variable is not set");
-        }
-        const sessionToken = jwt.sign({ userId: user.id, role: user.roleId }, process.env.JWT_SECRET, { expiresIn: "7d" });
-        const expiresAt = new Date(Date.now() + SESSION_EXPIRY);
-
-        await prisma.session.create({
-            data: {
-                userId: user.id,
-                token: sessionToken,
-                ipAddress: req.ip ?? "Unknown",
-                userAgent: req.headers["user-agent"] ?? "Unknown",
-                expiresAt,
-            }
-        });
-
-        // ✅ Update last login & reset failed attempts
-        const updatedUser = await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                lastLogin: new Date(),
-                loginAttempts: 0,
-                lockedUntil: null,
-            },
-            include: {
-                role: { include: { permissions: true } },
-                addresses: true,
-            }
-        });
-
-        // ✅ Send response
-        const { password: _, verifyToken: __, verifyExpires: ___, resetToken, resetExpires, ...userWithoutSensitiveData } = updatedUser;
-
-        res.status(200).json({
-            message: "Login successful",
-            token: sessionToken,
-            user: userWithoutSensitiveData,
-        });
-
-    } catch (error) {
-        console.error("Login Error:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-};
+const TOKEN_EXPIRATION_HOURS = 1;
 
 
 
@@ -208,8 +119,19 @@ export const register = async (req: Request, res: Response) => {
             }
         });
 
+        const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verifyToken}`;
 
-
+        await notifyUser({
+            req,
+            userId: newUser.email!,
+            email: newUser.email!,
+            type: NotificationType.SYSTEM,
+            title: 'Please verify your email',
+            message: 'Account created successfully. Please verify your email to activate your account.',
+            link: verificationUrl,
+            reason: 'Email verification',
+            channels: ['audit'], // no in-app here
+        });
 
         // Send verification email
         await authService.sendVerificationEmail(newUser.email, verifyToken);
@@ -228,6 +150,116 @@ export const register = async (req: Request, res: Response) => {
 };
 
 
+export const login = async (req: Request, res: Response) => {
+    try {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email and password are required" });
+        }
+
+        // ✅ Find user
+        const user = await prisma.user.findUnique({
+            where: { email },
+            include: {
+                role: { include: { permissions: true } },
+                addresses: true,
+            },
+        });
+
+        if (!user || !user.password) {
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        // ✅ Check if account is locked
+        if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
+            return res.status(403).json({ message: "Account locked due to too many failed attempts. Try again later." });
+        }
+
+        if (user.isBanned) {
+            return res.status(403).json({ message: "Your account has been banned." });
+        }
+
+
+        // ✅ Verify password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            await prisma.user.update({
+                where: { id: user.id },
+                data: { loginAttempts: user.loginAttempts + 1 }
+            });
+
+            if (user.loginAttempts + 1 >= MAX_LOGIN_ATTEMPTS) {
+                await prisma.user.update({
+                    where: { id: user.id },
+                    data: { lockedUntil: new Date(Date.now() + LOCK_DURATION) }
+                });
+            }
+
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        // ✅ Generate JWT session token
+        if (!process.env.JWT_SECRET) {
+            throw new Error("JWT_SECRET environment variable is not set");
+        }
+        const sessionToken = jwt.sign({ userId: user.id, role: user.roleId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+        const expiresAt = new Date(Date.now() + SESSION_EXPIRY);
+
+        await prisma.session.create({
+            data: {
+                userId: user.id,
+                token: sessionToken,
+                ipAddress: req.ip ?? "Unknown",
+                userAgent: req.headers["user-agent"] ?? "Unknown",
+                expiresAt,
+            }
+        });
+
+        // ✅ Update last login & reset failed attempts
+        const updatedUser = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                lastLogin: new Date(),
+                loginAttempts: 0,
+                lockedUntil: null,
+            },
+            include: {
+                role: { include: { permissions: true } },
+                addresses: true,
+            }
+        });
+
+        // ✅ Send response
+        const { password: _, verifyToken: __, verifyExpires: ___, resetToken, resetExpires, ...userWithoutSensitiveData } = updatedUser;
+
+        res.status(200).json({
+            message: "Login successful",
+            token: sessionToken,
+            user: userWithoutSensitiveData,
+        });
+
+        // Optional security notification for MallKet login
+        await notifyUser({
+            req,
+            userId: user.id,
+            email: user.email!,
+            type: NotificationType.SECURITY,
+            title: 'MallKet Login Alert',
+            message: 'Your account was accessed successfully. If you did not initiate this login, please secure your account immediately.',
+            link: '/account/security',
+            reason: `MallKet login detected from ${req.ip}`
+        });
+
+
+
+    } catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+
 export const logout = async (req: Request, res: Response) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
@@ -235,8 +267,10 @@ export const logout = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "No token provided" });
         }
 
+        console.log('Token received for logout:', token);
         // ✅ Verify session exists before deletion
         const session = await prisma.session.findUnique({ where: { token } });
+        console.log('Session found?', !!session);
         if (!session) {
             return res.status(404).json({ message: "Session not found or already logged out." });
         }
@@ -249,6 +283,8 @@ export const logout = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+
 
 
 
@@ -280,6 +316,20 @@ export const verifyEmail = async (req: Request, res: Response) => {
                 verifyExpires: null,
             },
         });
+
+        // Send notification to user
+        await notifyUser({
+            req,
+            userId: user.id,
+            email: user.email!,
+            type: NotificationType.SYSTEM,
+            title: 'Welcome to MallKet!',
+            message: 'Your account has been successfully verified. Start shopping now!',
+            link: 'https://mallket.com', // Update with your frontend URL
+            reason: 'New user registration',
+            channels: ['email', 'in-app', 'audit'], // no email here
+        });
+
 
         res.status(200).json({ message: "Email verified successfully" });
     } catch (error) {
@@ -318,6 +368,19 @@ export const resendVerificationEmail = async (req: Request, res: Response) => {
             },
         });
 
+        // Send notification to user
+        await notifyUser({
+            req,
+            userId: user.id,
+            email: user.email!,
+            type: NotificationType.SYSTEM,
+            title: 'Verification Email Resend!',
+            message: `Kindly click the link to verify your email address. ${token}`,
+            link: token,
+            reason: 'Resending new user email verification',
+            channels: ['in-app', 'audit'], // no email here
+        });
+
         await authService.sendVerificationEmail(email, token);
 
         res.status(200).json({ message: "Verification email resent" });
@@ -349,6 +412,19 @@ export const requestPasswordReset = async (req: Request, res: Response) => {
             where: { email },
             data: { resetToken, resetExpires },
         });
+
+        await notifyUser({
+            req,
+            userId: user.id,
+            email: user.email!,
+            type: NotificationType.SECURITY,
+            title: 'Password Reset Request',
+            message: 'Click the link to reset your password.',
+            link: resetToken,
+            reason: 'Password reset',
+            channels: ['audit'],
+        });
+
 
         await authService.sendPasswordResetEmail(email, resetToken);
 
@@ -383,7 +459,10 @@ export const resetPassword = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "Invalid or expired token" });
         }
 
-        // Check if new password is different from current password
+        if (!user.password) {
+            return res.status(400).json({ message: "Current password is not set" });
+        }
+
         const isSamePassword = await authService.comparePassword(newPassword, user.password);
         if (isSamePassword) {
             return res.status(400).json({ message: "New password must be different from current password" });
@@ -400,6 +479,19 @@ export const resetPassword = async (req: Request, res: Response) => {
                 lastPasswordChange: new Date(),
             },
         });
+
+        await notifyUser({
+            req,
+            userId: user.id,
+            email: user.email!,
+            type: NotificationType.SECURITY,
+            title: 'Password Changed',
+            message: `Your password was successfully changed. Proceed to login with the new password at MallKet.`,
+            link: '/login',
+            reason: 'Password reset confirmation',
+            channels: ['in-app', 'audit', 'email'],
+        });
+
 
         res.status(200).json({ message: "Password has been reset successfully" });
     } catch (error) {
@@ -429,8 +521,49 @@ export const banUser = async (req: Request, res: Response) => {
             data: { isBanned: true },
         });
 
-        // Blacklist active session tokens
-        const sessions = await prisma.session.findMany({ where: { userId } });
+
+
+        // Optionally blacklist active session tokens if available
+        const sessions = await prisma.session.findMany({
+            where: { userId },
+        });
+
+        const { reason } = req.body;
+
+        // Validate
+        if (!reason) {
+            return res.status(400).json({ message: 'Reason is required' });
+        }
+        // Send notification (in-app + email) and log audit
+        await notifyUser({
+            req,
+            userId,
+            email: user.email, // ✅ Make sure to include this
+            type: NotificationType.SECURITY,
+            title: 'Account Banned',
+            message: `${reason}`,
+            link: '/help/account-status',
+            reason: `${reason}`,
+            channels: ['email', 'in-app', 'audit'],
+        });
+
+
+        await notifyAdmins({
+            type: NotificationType.SECURITY,
+            title: 'User Account Banned',
+            message: `User ${user.email} has been banned for: ${reason}`,
+            link: `/admin/users/${user.id}`, // Optional link to admin dashboard
+            req,
+            reason,
+            channels: ['email', 'in-app', 'audit'],
+            roles: ['ADMIN', 'MODERATOR'], // You can customize roles
+        });
+
+
+
+
+
+
 
         for (const session of sessions) {
             await prisma.blacklistedToken.upsert({
@@ -444,45 +577,9 @@ export const banUser = async (req: Request, res: Response) => {
             });
         }
 
-        // ➕ Audit log entry
-        // try {
-        //     await prisma.auditLog.create({
-        //         data: {
-        //             action: 'ban_user',
-        //             entity: 'User',
-        //             entityId: userId,
-        //             userId: req.user?.id ?? null,
-        //             ipAddress: req.ip,
-        //             metadata: {
-        //                 reason: 'User banned by admin',
-        //                 timestamp: new Date().toISOString(),
-        //             },
-        //         },
-        //     });
-        //     console.log("Audit log successfully stored");
-        // } catch (auditError) {
-        //     console.error("Audit log failed:", auditError);
-        // }
+        // res.status(200).json({ message: "User has been banned successfully" });
+        res.status(200).json({ message: 'User banned, notifications and email sent' });
 
-        try {
-            const testLog = await prisma.auditLog.create({
-                data: {
-                    action: 'test_action',
-                    entity: 'Test',
-                    entityId: 'test123',
-                    userId: 'test-user-id',
-                    ipAddress: '127.0.0.1',
-                    metadata: { test: true }
-                }
-            });
-            console.log("Test audit log created:", testLog);
-        } catch (error) {
-            console.error("Test audit log failed:", error);
-        }
-
-
-
-        res.status(200).json({ message: "User has been banned successfully" });
     } catch (error) {
         console.error("Ban user error:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -490,10 +587,12 @@ export const banUser = async (req: Request, res: Response) => {
 };
 
 
+
 // ✅ UNBAN USER
 export const unbanUser = async (req: Request, res: Response) => {
     try {
         const userId = req.params.userId;
+
 
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
@@ -511,44 +610,38 @@ export const unbanUser = async (req: Request, res: Response) => {
             data: { isBanned: false },
         });
 
-        // Remove blacklisted tokens
-        await prisma.blacklistedToken.deleteMany({ where: { userId } });
+        // Remove blacklisted tokens associated with the user
+        await prisma.blacklistedToken.deleteMany({
+            where: { userId },
+        });
 
-        // ➕ Audit log entry
-        // try {
-        //     await prisma.auditLog.create({
-        //         data: {
-        //             action: 'unban_user',
-        //             entity: 'User',
-        //             entityId: userId,
-        //             userId: req.user?.id ?? null,
-        //             ipAddress: req.ip,
-        //             metadata: {
-        //                 reason: 'User unbanned by admin',
-        //                 timestamp: new Date().toISOString(),
-        //             },
-        //         },
-        //     });
-        //     console.log("Audit log successfully stored");
-        // } catch (auditError) {
-        //     console.error("Audit log failed:", auditError);
-        // }
 
-        try {
-            const testLog = await prisma.auditLog.create({
-                data: {
-                    action: 'test_action',
-                    entity: 'Test',
-                    entityId: 'test123',
-                    userId: 'test-user-id',
-                    ipAddress: '127.0.0.1',
-                    metadata: { test: true }
-                }
-            });
-            console.log("Test audit log created:", testLog);
-        } catch (error) {
-            console.error("Test audit log failed:", error);
-        }
+
+        const { reason } = req.body;
+        if (!reason) return res.status(400).json({ message: 'Reason is required' });
+        await notifyUser({
+            req,
+            userId,
+            email: user.email!,
+            type: NotificationType.SECURITY,
+            title: 'Account Unbanned',
+            message: reason,
+            link: '/help/account-status',
+            reason: reason,
+            channels: ['email', 'in-app', 'audit'],
+        });
+
+
+        await notifyAdmins({
+            type: NotificationType.SECURITY,
+            title: 'User Account Unbanned',
+            message: `The User named ${user.firstName} with the email ${user.email} has unbanned banned for: ${reason}`,
+            link: `/admin/users/${user.id}`, // Optional link to admin dashboard
+            req,
+            reason,
+            channels: ['email', 'in-app', 'audit'],
+            roles: ['ADMIN', 'MODERATOR'], // You can customize roles
+        });
 
 
         res.status(200).json({ message: "User has been unbanned successfully" });
@@ -614,6 +707,18 @@ export const updatePassword = async (req: Request, res: Response) => {
             data: { password: hashedPassword },
         });
 
+        await notifyUser({
+            req,
+            userId: user.id,
+            email: user.email!,
+            type: NotificationType.SECURITY,
+            title: 'Password Updated',
+            message: 'Your password was updated successfully.',
+            reason: 'Password update',
+            channels: ['email', 'in-app', 'audit'],
+        });
+
+
         res.status(200).json({ message: "Password updated successfully" });
     } catch (error) {
         console.error("Update password error:", error);
@@ -627,6 +732,10 @@ export const updateProfile = async (req: Request, res: Response) => {
         const userId = req.user?.id;
         const { firstName, lastName, address } = req.body;
 
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
         const updateData: any = {};
         if (firstName) updateData.firstName = firstName;
         if (lastName) updateData.lastName = lastName;
@@ -636,14 +745,26 @@ export const updateProfile = async (req: Request, res: Response) => {
             data: updateData,
             include: {
                 role: true,
-                addresses: true
-            }
+                addresses: true,
+            },
+        });
+
+        // ✅ Notify: Profile updated (in-app + audit only)
+        await notifyUser({
+            req,
+            userId: updatedUser.id,
+            email: updatedUser.email!,
+            type: NotificationType.SECURITY,
+            title: 'Profile Updated',
+            message: 'Your profile details were successfully updated.',
+            reason: 'User updated their profile',
+            channels: ['in-app', 'audit'],
         });
 
         res.status(200).json({ user: updatedUser });
     } catch (error) {
-        console.error("Update profile error:", error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error('Update profile error:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
@@ -656,17 +777,31 @@ export const createRole = async (req: Request, res: Response) => {
             data: {
                 name,
                 permissions: {
-                    connect: permissions?.map((id: number) => ({ id }))
-                }
-            }
+                    connect: permissions?.map((id: number) => ({ id })),
+                },
+            },
         });
 
-        res.status(201).json({ message: "Role created successfully", role });
+        // Optionally log audit if required (not essential here)
+        // await logAudit({
+        //   req,
+        //   action: 'CREATE_ROLE',
+        //   entity: 'Role',
+        //   entityId: String(role.id),
+        //   metadata: {
+        //     roleName: name,
+        //     permissionsAssigned: permissions,
+        //     createdBy: req.user?.email,
+        //   },
+        // });
+
+        res.status(201).json({ message: 'Role created successfully', role });
     } catch (error) {
-        console.error("Create role error:", error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error('Create role error:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
+
 
 // 📋 List Roles (Admin Only)
 export const listRoles = async (_req: Request, res: Response) => {
@@ -681,6 +816,19 @@ export const listRoles = async (_req: Request, res: Response) => {
     } catch (error) {
         console.error("List roles error:", error);
         res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+
+
+
+export const googleLogin = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { token } = req.body;
+        const data = await googleLoginService(token);
+        res.status(200).json({ message: 'Login successful', ...data });
+    } catch (err) {
+        next(err);
     }
 };
 

@@ -10,18 +10,36 @@ import notificationRoutes from './routes/notification.routes';
 
 import { errorHandler } from './middlewares/error.middleware';
 
+
+
 const app = express();
+
+// In your backend (app.ts/server.ts)
+app.use(cors({
+  origin: 'http://localhost:3000', // Your frontend URL
+  credentials: true, // Required for cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD', 'TRACE', 'CONNECT', 'COPY', 'LOCK', 'MKCOL', 'MOVE', 'PROPFIND', 'PROPPATCH', 'SEARCH', 'UNLOCK', 'REPORT', 'FETCH', 'PURGE', 'LINK', 'UNLINK'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+
 
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 
 
-// Add this right after app.use(express.json());
-app.post('/api/test-body', (req, res) => {
-  console.log('Test Body:', req.body); // Check if this logs correctly
-  res.json(req.body);
+app.get('/', (req, res) => {
+  res.status(200).send('MallKet backend is alive!');
 });
+
+
+app.get('/health', (req, res) => {
+  res.status(200).send('MallKet backend is alive!');
+});
+
+
+
 
 // Routes
 app.use('/api/auth', authRoutes);
