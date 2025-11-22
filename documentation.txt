@@ -589,3 +589,225 @@ mallket-backend/
 ├── utils/                # Utility functions (e.g., token, config)
 └── sso/                  # ✅ Create this folder for SSO strategy config (optional)
 
+
+
+
+
+✅ MallKet — Complete Pages List (Multivendor Ecommerce)
+1️⃣ Public Pages (Visible to Everyone)
+
+These pages build trust and drive sales.
+
+A. Core Pages
+
+Home Page
+
+Product Listing / Shop Page
+
+Product Details Page
+
+Search Results Page
+
+Categories Page
+
+Sub-categories Page
+
+Brands Page
+
+Deal/Flash Sales Page
+
+Top Sellers Page
+
+New Arrivals Page
+
+Trending Products Page
+
+B. Marketing & Info Pages
+
+About Us
+
+Contact Us
+
+FAQs
+
+Privacy Policy
+
+Terms & Conditions
+
+Return & Refund Policy
+
+Shipping Information
+
+Become a Seller (CTA Page)
+
+C. Authentication Pages
+
+Login
+
+Register (Buyer/Seller)
+
+Forgot Password
+
+Reset Password
+
+Email Verification
+
+2️⃣ Buyer Account Dashboard Pages
+
+The buyer dashboard should be simple and customer-friendly.
+
+Buyer Dashboard Home
+
+My Profile
+
+Edit Profile
+
+My Orders
+
+Order Details
+
+Order Tracking Page
+
+Wishlist
+
+Cart Page
+
+Checkout Page
+
+Payment Page
+
+Saved Addresses
+
+Notifications Page
+
+Messages/Support Tickets
+
+3️⃣ Seller Dashboard Pages
+
+Multivendor MUST have a strong seller dashboard.
+
+Seller Dashboard Home
+
+My Profile / Store Settings
+
+Verify Seller / KYC Page
+
+Product Management
+
+Add New Product
+
+Edit Product
+
+My Products List
+
+Product Variants Page
+
+Inventory Management
+
+Bulk Upload Products
+
+Order Management
+
+Seller Orders List
+
+Order Details
+
+Order Status Update Page
+
+Finance Pages
+
+Sales Reports
+
+Earnings Overview
+
+Withdrawal Request Page
+
+Withdrawal History
+
+Support
+
+Seller Support / Messages
+
+Reviews & Ratings Page
+
+4️⃣ Admin Dashboard Pages
+
+The engine of the multi-vendor system.
+
+Admin Dashboard Home
+
+Admin Profile Settings
+
+User & Seller Management
+
+Buyer Accounts List
+
+Seller Accounts List
+
+Seller Verification Requests
+
+Suspended Sellers Page
+
+Product Management
+
+All Products
+
+Pending Product Approvals
+
+Categories Management
+
+Sub-categories Management
+
+Brands Management
+
+Attributes & Variants Management
+
+Order & Payment
+
+All Orders
+
+Order Details
+
+Refund Requests
+
+Transaction History
+
+Payout Management (Seller Withdrawals)
+
+Content Management
+
+Homepage Banners
+
+Promotions / Flash Sales
+
+Coupons & Discounts
+
+Blog Posts
+
+Static Pages Management
+
+System Settings
+
+General Settings
+
+Payment Settings
+
+SMS/Email Settings
+
+Shipping Settings
+
+Tax Settings
+
+Roles & Permissions
+
+Audit Logs
+
+Reports
+
+Sales Report
+
+Seller Report
+
+Customer Report
+
+Product Performance Report
