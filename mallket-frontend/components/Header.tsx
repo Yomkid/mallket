@@ -22,89 +22,42 @@ export default function Header() {
 
   return (
     <header className="bg-white shadow-sm">
-      {/* Top Bar */}
-      <div className="bg-gray-900 text-white text-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-10">
-            <div className="flex items-center space-x-4">
-              <Link href="/sell" className="hover:text-green-400 transition-colors">
-                Sell on MallKet
-              </Link>
-              <Link href="/customer-service" className="hover:text-green-400 transition-colors">
-                Customer Service
-              </Link>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button className="flex items-center space-x-1 hover:text-green-400 transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                <span>Help</span>
-              </button>
-              <Link href="/orders" className="hover:text-green-400 transition-colors">
-                Track Order
-              </Link>
-              <Link href="/account" className="flex items-center space-x-1 hover:text-green-400 transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span>Account</span>
-              </Link>
-            </div>
-          </div>
-        </div>
+      {/* Top Banner */}
+      <div className="bg-orange-500 text-white text-center py-1.5 text-sm font-medium">
+        🎉 Special Offer: Up to 50% Off on Selected Items | Free Delivery on Orders Above $50
       </div>
 
       {/* Main Header */}
-      <div className="bg-green-600">
+      <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-4">
+          <div className="flex items-center justify-between h-20 gap-4">
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
-              <div className="w-9 h-9 bg-white rounded flex items-center justify-center">
-                <span className="text-green-600 font-bold text-lg">MK</span>
-              </div>
-              <div className="hidden sm:block">
-                <span className="text-white font-bold text-xl">MallKet</span>
+              <div className="bg-green-700 text-white font-bold text-2xl px-3 py-2 rounded">
+                MallKet
               </div>
             </Link>
 
             {/* Search Bar */}
-            <div className="flex-1 max-w-3xl">
-              <div className="flex">
-                {/* Category Dropdown */}
-                <div className="relative hidden md:block">
-                  <select 
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="h-11 pl-4 pr-8 bg-gray-100 text-gray-700 text-sm font-medium rounded-l-lg border-r border-gray-300 focus:outline-none focus:bg-white appearance-none cursor-pointer"
-                    style={{ minWidth: '140px' }}
-                  >
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                  <svg className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-600 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-
+            <div className="flex-1 max-w-2xl mx-4">
+              <div className="flex rounded-md overflow-hidden border border-gray-300 focus-within:border-green-700 focus-within:ring-1 focus-within:ring-green-700">
                 {/* Search Input */}
-                <div className="flex-1 relative">
+                <div className="flex-1 relative flex items-center">
+                  <svg className="absolute left-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search products, brands and categories..."
-                    className="w-full h-11 px-4 text-gray-700 focus:outline-none md:rounded-none rounded-l-lg"
+                    placeholder="Search products, brands and categories"
+                    className="w-full h-12 pl-10 pr-4 text-gray-700 focus:outline-none text-sm"
                   />
                 </div>
 
                 {/* Search Button */}
-                <button className="bg-orange-500 hover:bg-orange-600 px-6 h-11 rounded-r-lg transition-colors flex items-center justify-center">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                <button className="bg-orange-500 hover:bg-orange-600 px-8 text-white font-semibold text-sm transition-colors uppercase tracking-wide">
+                  Search
                 </button>
               </div>
             </div>
@@ -112,28 +65,48 @@ export default function Header() {
             {/* Right Actions */}
             <div className="flex items-center space-x-6">
               {/* Account */}
-              <Link href="/account" className="hidden lg:flex flex-col items-start text-white hover:text-orange-400 transition-colors">
-                <span className="text-xs">Hello, Sign In</span>
-                <span className="font-semibold text-sm">Account & Lists</span>
-              </Link>
+              <button className="hidden lg:flex items-center space-x-2 text-gray-700 hover:text-green-700 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <div className="flex flex-col items-start">
+                  <span className="text-xs text-gray-500">Account</span>
+                  <div className="flex items-center space-x-1">
+                    <span className="font-semibold text-sm">Sign In</span>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
 
-              {/* Orders */}
-              <Link href="/orders" className="hidden lg:flex flex-col items-start text-white hover:text-orange-400 transition-colors">
-                <span className="text-xs">Returns</span>
-                <span className="font-semibold text-sm">& Orders</span>
-              </Link>
+              {/* Help */}
+              <button className="hidden lg:flex items-center space-x-2 text-gray-700 hover:text-green-700 transition-colors">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="flex flex-col items-start">
+                  <span className="text-xs text-gray-500">Help</span>
+                  <div className="flex items-center space-x-1">
+                    <span className="font-semibold text-sm">Support</span>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
 
               {/* Cart */}
-              <Link href="/cart" className="flex items-center space-x-2 text-white hover:text-orange-400 transition-colors">
+              <Link href="/cart" className="flex items-center space-x-2 text-gray-700 hover:text-green-700 transition-colors">
                 <div className="relative">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
-                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                     3
                   </span>
                 </div>
-                <span className="hidden sm:block font-semibold">Cart</span>
+                <span className="hidden sm:block font-semibold text-sm">Cart</span>
               </Link>
             </div>
           </div>
@@ -141,43 +114,45 @@ export default function Header() {
       </div>
 
       {/* Navigation Bar */}
-      <div className="bg-gray-800 text-white">
+      <div className="bg-green-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center h-10 space-x-6 text-sm overflow-x-auto">
+          <div className="flex items-center h-12 space-x-8 text-sm overflow-x-auto">
             {/* All Categories Menu */}
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="flex items-center space-x-1 font-semibold hover:text-orange-400 transition-colors whitespace-nowrap"
+              className="flex items-center space-x-2 font-semibold hover:bg-green-800 px-3 py-2 rounded transition-colors whitespace-nowrap"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              <span>All</span>
+              <span>All Categories</span>
             </button>
 
-            <Link href="/deals" className="hover:text-orange-400 transition-colors font-medium whitespace-nowrap">
-              Today's Deals
+            <div className="h-6 w-px bg-green-600"></div>
+
+            <Link href="/deals" className="hover:bg-green-800 px-3 py-2 rounded transition-colors font-medium whitespace-nowrap flex items-center space-x-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+              </svg>
+              <span>Today's Deals</span>
             </Link>
-            <Link href="/electronics" className="hover:text-orange-400 transition-colors whitespace-nowrap">
+            <Link href="/electronics" className="hover:bg-green-800 px-3 py-2 rounded transition-colors whitespace-nowrap">
               Electronics
             </Link>
-            <Link href="/fashion" className="hover:text-orange-400 transition-colors whitespace-nowrap">
-              Fashion
+            <Link href="/fashion" className="hover:bg-green-800 px-3 py-2 rounded transition-colors whitespace-nowrap">
+              Fashion & Beauty
             </Link>
-            <Link href="/home" className="hover:text-orange-400 transition-colors whitespace-nowrap">
+            <Link href="/home" className="hover:bg-green-800 px-3 py-2 rounded transition-colors whitespace-nowrap">
               Home & Kitchen
             </Link>
-            <Link href="/sports" className="hover:text-orange-400 transition-colors whitespace-nowrap">
-              Sports
+            <Link href="/sports" className="hover:bg-green-800 px-3 py-2 rounded transition-colors whitespace-nowrap">
+              Sports & Fitness
             </Link>
-            <Link href="/gift-cards" className="hover:text-orange-400 transition-colors whitespace-nowrap">
-              Gift Cards
+            <Link href="/new" className="hover:bg-green-800 px-3 py-2 rounded transition-colors whitespace-nowrap">
+              New Arrivals
             </Link>
-            <Link href="/new" className="hover:text-orange-400 transition-colors whitespace-nowrap">
-              New Releases
-            </Link>
-            <Link href="/sell" className="text-orange-400 font-semibold whitespace-nowrap">
-              Become a Seller
+            <Link href="/sell" className="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded font-semibold whitespace-nowrap ml-auto transition-colors">
+              Sell on MallKet
             </Link>
           </div>
         </div>
@@ -192,7 +167,7 @@ export default function Header() {
                 <Link
                   key={category}
                   href={`/category/${category.toLowerCase().replace(/ /g, '-')}`}
-                  className="py-2 px-3 text-gray-700 hover:bg-green-50 hover:text-green-600 rounded transition-colors"
+                  className="py-2 px-3 text-gray-700 hover:bg-green-50 hover:text-green-700 rounded transition-colors"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   {category}

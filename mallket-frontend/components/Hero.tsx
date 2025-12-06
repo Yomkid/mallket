@@ -1,76 +1,75 @@
 'use client';
 
-import { useState, useEffect, SetStateAction } from 'react';
+import { useState, useEffect } from 'react';
+import { Phone, Store, Package, Star } from 'lucide-react';
 
 export default function Hero() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentDealSlide, setCurrentDealSlide] = useState(0);
 
   const slides = [
     {
+      type: 'text-image',
       bg: 'from-blue-600 to-blue-800',
       title: 'Black Friday Deals',
       subtitle: 'Up to 70% Off on Electronics',
       cta: 'Shop Now',
-      image: '📱'
+      image: '/assets/img/products/headphones.png'
     },
     {
+      type: 'text-image',
       bg: 'from-orange-600 to-red-600',
       title: 'Fashion Week Sale',
       subtitle: 'New Arrivals | Up to 50% Off',
       cta: 'Explore Fashion',
-      image: '👗'
+      image: '/assets/img/products/headphones.png'
     },
     {
-      bg: 'from-green-600 to-teal-600',
-      title: 'Home & Kitchen Essentials',
-      subtitle: 'Transform Your Space Today',
-      cta: 'Shop Home',
-      image: '🏠'
+      type: 'image-only',
+      bg: 'from-green-700 to-teal-700',
+      image: '/assets/img/products/banner.png',
+      alt: 'Home Decor Special'
     },
     {
-      bg: 'from-purple-600 to-pink-600',
-      title: 'Gadgets & Accessories',
-      subtitle: 'Latest Tech at Best Prices',
-      cta: 'View Deals',
-      image: '⌚'
+      type: 'ad-space',
+      bg: 'from-green-100 to-green-100',
+      title: 'Ad Space Available',
+      subtitle: 'Promote your brand here',
+      cta: 'Buy Ad Space'
     }
   ];
 
-  const dealProducts = [
+  const quickActions = [
+    { icon: Phone, text: 'CALL TO ORDER: 08149594986', action: 'tel:08149594986' },
+    { icon: Store, text: 'SELL ON MALLKET', action: '/sell' },
+    { icon: Package, text: 'SEND PACKAGES', action: '/delivery' }
+  ];
+
+  const dealSlides = [
     {
-      name: 'Wireless Earbuds',
-      price: '$49.99',
-      oldPrice: '$99.99',
-      discount: '-50%',
-      image: '🎧',
-      rating: 4.5
+      title: '🔥 FLASH DEALS',
+      products: [
+        { name: 'Wireless Earbuds', price: '$49.99', discount: '-50%' },
+        { name: 'Smart Watch Pro', price: '$199.99', discount: '-33%' }
+      ]
     },
     {
-      name: 'Smart Watch Pro',
-      price: '$199.99',
-      oldPrice: '$299.99',
-      discount: '-33%',
-      image: '⌚',
-      rating: 4.8
+      title: '🆕 NEW ARRIVALS',
+      products: [
+        { name: 'Gaming Mouse', price: '$29.99', discount: '-50%' },
+        { name: 'USB-C Hub', price: '$24.99', discount: '-50%' }
+      ]
     },
     {
-      name: 'Gaming Mouse',
-      price: '$29.99',
-      oldPrice: '$59.99',
-      discount: '-50%',
-      image: '🖱️',
-      rating: 4.6
-    },
-    {
-      name: 'USB-C Hub',
-      price: '$24.99',
-      oldPrice: '$49.99',
-      discount: '-50%',
-      image: '🔌',
-      rating: 4.4
+      title: '⭐ TOP RATED',
+      products: [
+        { name: 'Bluetooth Speaker', price: '$79.99', discount: '-40%' },
+        { name: 'Phone Case', price: '$14.99', discount: '-25%' }
+      ]
     }
   ];
 
+  // Main carousel timer
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -78,7 +77,15 @@ export default function Hero() {
     return () => clearInterval(timer);
   }, [slides.length]);
 
-  const goToSlide = (index: SetStateAction<number>) => {
+  // Fast deal carousel timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDealSlide((prev) => (prev + 1) % dealSlides.length);
+    }, 3000); // Faster transition for deals
+    return () => clearInterval(timer);
+  }, [dealSlides.length]);
+
+  const goToSlide = (index: number) => {
     setCurrentSlide(index);
   };
 
@@ -105,22 +112,54 @@ export default function Hero() {
                     index === currentSlide ? 'opacity-100' : 'opacity-0'
                   }`}
                 >
-                  <div className={`w-full h-full bg-gradient-to-r ${slide.bg} flex items-center justify-between px-8 md:px-16`}>
-                    <div className="text-white space-y-4 max-w-xl">
-                      <h2 className="text-3xl md:text-5xl font-bold leading-tight">
-                        {slide.title}
-                      </h2>
-                      <p className="text-lg md:text-xl text-white/90">
-                        {slide.subtitle}
-                      </p>
-                      <button className="bg-white text-gray-900 font-semibold px-8 py-3 rounded-lg hover:bg-gray-100 transition-colors shadow-lg">
-                        {slide.cta}
-                      </button>
+                  {slide.type === 'text-image' && (
+                    <div className={`w-full h-full bg-gradient-to-r ${slide.bg} flex items-center justify-between px-8 md:px-16`}>
+                      <div className="text-white space-y-4 max-w-xl">
+                        <h2 className="text-3xl md:text-5xl font-bold leading-tight">
+                          {slide.title}
+                        </h2>
+                        <p className="text-lg md:text-xl text-white/90">
+                          {slide.subtitle}
+                        </p>
+                        <button className="bg-white text-gray-900 font-semibold px-8 py-3 rounded-lg hover:bg-gray-100 transition-colors shadow-lg">
+                          {slide.cta}
+                        </button>
+                      </div>
+                      <div className="hidden md:block">
+                        <img 
+                          src={slide.image} 
+                          alt={slide.title}
+                          className="h-64 w-auto object-contain"
+                        />
+                      </div>
                     </div>
-                    <div className="hidden md:block text-9xl opacity-20">
-                      {slide.image}
+                  )}
+
+                  {slide.type === 'image-only' && (
+                    <div className="w-full h-full">
+                      <img 
+                        src={slide.image} 
+                        alt={slide.alt}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                  </div>
+                  )}
+
+                  {slide.type === 'ad-space' && (
+                    <div className={`w-full h-full bg-gradient-to-r ${slide.bg} flex flex-col items-center justify-center border-2 border-dashed border-green-700 p-8`}>
+                      <div className="text-white text-center space-y-4">
+                        <h2 className="text-3xl md:text-4xl font-bold">
+                          {slide.title}
+                        </h2>
+                        <p className="text-lg md:text-xl text-white/90">
+                          {slide.subtitle}
+                        </p>
+                        <button className="bg-white text-gray-900 font-semibold px-8 py-3 rounded-lg hover:bg-gray-100 transition-colors shadow-lg border-2 border-green-700">
+                          {slide.cta}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -159,65 +198,83 @@ export default function Hero() {
             </div>
           </div>
 
-          {/* Deals Sidebar */}
+          {/* Sidebar */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden h-full">
-              <div className="bg-orange-500 text-white px-4 py-3">
-                <h3 className="font-bold text-lg">⚡ Flash Deals</h3>
-                <p className="text-sm text-orange-100">Limited time offers</p>
-              </div>
+            <div className="bg-white rounded-lg shadow-lg overflow-hidden h-[300px] md:h-[400px] flex flex-col">
               
-              <div className="divide-y divide-gray-200">
-                {dealProducts.map((product, index) => (
-                  <div key={index} className="p-3 hover:bg-gray-50 transition-colors cursor-pointer">
-                    <div className="flex gap-3">
-                      {/* Product Image Placeholder */}
-                      <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 text-3xl">
-                        {product.image}
-                      </div>
-                      
-                      {/* Product Info */}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-sm text-gray-900 truncate mb-1">
-                          {product.name}
-                        </h4>
-                        
-                        {/* Rating */}
-                        <div className="flex items-center gap-1 mb-2">
-                          <div className="flex text-yellow-400">
-                            {[...Array(5)].map((_, i) => (
-                              <svg key={i} className="w-3 h-3" fill={i < Math.floor(product.rating) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                              </svg>
-                            ))}
+              {/* Quick Actions Section */}
+              <div className="border-b border-gray-200">
+                <div className="p-4 space-y-3">
+                  {quickActions.map((action, index) => (
+                    <button 
+                      key={index}
+                      className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors w-full text-left group"
+                    >
+                      <action.icon size={20} className="text-green-700 flex-shrink-0" />
+                      <span className="text-gray-900 font-semibold text-sm">{action.text}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Fast Deals Carousel */}
+              <div className="flex-1 relative overflow-hidden">
+                {dealSlides.map((slide, index) => (
+                  <div
+                    key={index}
+                    className={`absolute inset-0 transition-opacity duration-300 ${
+                      index === currentDealSlide ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  >
+                    <div className="p-4 h-full flex flex-col">
+                      <h3 className="font-bold text-red-600 text-sm mb-3">{slide.title}</h3>
+                      <div className="space-y-3 flex-1">
+                        {slide.products.map((product, productIndex) => (
+                          <div key={productIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-gray-900 text-sm truncate">
+                                {product.name}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-bold text-green-700 text-sm">
+                                  {product.price}
+                                </span>
+                                <span className="bg-red-100 text-red-600 text-xs font-bold px-1.5 py-0.5 rounded">
+                                  {product.discount}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <span className="text-xs text-gray-500">({product.rating})</span>
-                        </div>
-                        
-                        {/* Price */}
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-green-600 text-lg">
-                            {product.price}
-                          </span>
-                          <span className="text-xs text-gray-400 line-through">
-                            {product.oldPrice}
-                          </span>
-                        </div>
-                        
-                        {/* Discount Badge */}
-                        <span className="inline-block bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded mt-1">
-                          {product.discount}
-                        </span>
+                        ))}
                       </div>
                     </div>
                   </div>
                 ))}
+                
+                {/* Deal Carousel Dots */}
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex space-x-1">
+                  {dealSlides.map((_, index) => (
+                    <div
+                      key={index}
+                      className={`w-1.5 h-1.5 rounded-full transition-all ${
+                        index === currentDealSlide
+                          ? 'bg-green-700'
+                          : 'bg-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
-              
-              <div className="p-3 bg-gray-50 border-t border-gray-200">
-                <button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 rounded-lg transition-colors text-sm">
-                  View All Deals →
-                </button>
+
+              {/* Ad Space Section */}
+              <div className="border-t border-gray-200">
+                <div className="p-3">
+                  <div className="border-2 border-dashed border-green-700 rounded-lg h-16 flex items-center justify-center bg-green-50 hover:bg-green-100 transition-colors cursor-pointer">
+                    <div className="text-center">
+                      <div className="text-green-700 font-bold text-sm">Ad Space</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
